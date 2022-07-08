@@ -92,10 +92,11 @@ func (c *Cache) RestoreFromFile(fileName string) error {
 		}
 		c.Add(&user.User{Id: record[0], AuthKey: record[1], Balance: balance})
 	}
+	os.Truncate(fileName, 0)
 	return nil
 }
 
-func (c *Cache) PushToFile(fileName string, u *user.User) error {
+func (c *Cache) ScreenToFile(fileName string) error {
 	file, err := os.OpenFile(fileName, os.O_APPEND|os.O_WRONLY, 0755)
 	if err != nil {
 		return err
@@ -104,9 +105,11 @@ func (c *Cache) PushToFile(fileName string, u *user.User) error {
 	w := csv.NewWriter(file)
 	defer w.Flush()
 	w.Comma = ';'
-	err = w.Write([]string{u.Id, u.AuthKey, strconv.FormatFloat(u.Balance, 'f', -1, 64)})
-	if err != nil {
-		return err
+	for _, v := range c.Users {
+		err = w.Write([]string{v.Id, v.AuthKey, strconv.FormatFloat(v.Balance, 'f', -1, 64)})
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }

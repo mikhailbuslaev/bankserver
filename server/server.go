@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sync"
 	"os/signal"
 	"syscall"
 	"time"
@@ -18,7 +19,7 @@ import (
 type BankService struct {
 	Server *fasthttp.Server
 	Cache *cache.Cache
-	DoneChan chan struct{}
+	WaitGroup *sync.WaitGroup
 }
 
 type OkResponse struct {
@@ -86,6 +87,13 @@ func (b *BankService) MakeTransactionHandler(ctx *fasthttp.RequestCtx) {
 		WriteBody(ctx, ErrResponse{"sender not exists"})
 		return
 	}
+
+	if sender.Balance < sum {
+		ctx.SetStatusCode(400)
+		WriteBody(ctx, ErrResponse{"not enough founds"})
+		return
+	}
+
 	_, err = b.Cache.Get(receiverId)
 	if err != nil {
 		ctx.SetStatusCode(400)
@@ -132,11 +140,6 @@ func (b *BankService) CreateUserHandler(ctx *fasthttp.RequestCtx) {
 		WriteBody(ctx, ErrResponse{"user creating failed"})
 		return
 	}
-	if err = b.Cache.PushToFile("cache.csv", user); err != nil {
-		ctx.SetStatusCode(500)
-		WriteBody(ctx, ErrResponse{"saving to file fail"})
-		return
-	}
 	ctx.SetStatusCode(200)
 	WriteBody(ctx, OkResponse{"successful user creating"})
 }
@@ -144,8 +147,10 @@ func (b *BankService) CreateUserHandler(ctx *fasthttp.RequestCtx) {
 func New() *BankService {
 	b := &BankService{}
 	b.Cache = cache.New()
-	b.DoneChan = make(chan struct{}, 1)
+	b.WaitGroup = &sync.WaitGroup{}
+
 	requestHandler := func(ctx *fasthttp.RequestCtx) {
+		b.WaitGroup.Add(1)
 		switch string(ctx.Path()) {
 		case "/get_balance":
 			b.GetBalanceHandler(ctx)
@@ -154,7 +159,7 @@ func New() *BankService {
 		case "/create_user":
 			b.CreateUserHandler(ctx)
 		}
-		b.DoneChan <- struct{}{}
+		b.WaitGroup.Done()
 	}
 
 	b.Server = &fasthttp.Server{
@@ -165,10 +170,11 @@ func New() *BankService {
 }
 
 func (b *BankService) Run() {
+	fmt.Println("server run...")
+	defer b.Cache.ScreenToFile("cache.csv")
 	if err := b.Cache.RestoreFromFile("cache.csv"); err != nil {
 		log.Fatalf("restore cash fail")
 	}
-	fmt.Println("server run...")
 	go func() {
 		if err := b.Server.ListenAndServe(":1111"); err != nil {
 			log.Fatalf("error in ListenAndServe: %v", err)
@@ -180,6 +186,6 @@ func (b *BankService) Run() {
 	<- exit
 	
 	println("server exit...")
-	<-b.DoneChan
-	time.Sleep(3*time.Second)
+	b.WaitGroup.Wait()
+	time.Sleep(1*time.Second)
 }
