@@ -13,6 +13,7 @@ import (
 var (
 	AlreadyExistsErr = errors.New("user with that id already exists")
 	NotExistsErr = errors.New("user with that id not exists")
+	NegativeBalanceErr = errors.New("not enough funds")
 	emptyUser = user.User{}
 )
 
@@ -65,6 +66,9 @@ func (c *Cache) ChangeBalance(id string, sum float64) error {
 		return NotExistsErr
 	}
 	user.Balance = user.Balance+sum
+	if user.Balance < 0.00 {
+		return NegativeBalanceErr
+	}
 	c.Users[id] = user
 	return nil
 }

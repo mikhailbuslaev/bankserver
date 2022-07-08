@@ -88,12 +88,6 @@ func (b *BankService) MakeTransactionHandler(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	if sender.Balance < sum {
-		ctx.SetStatusCode(400)
-		WriteBody(ctx, ErrResponse{"not enough founds"})
-		return
-	}
-
 	_, err = b.Cache.Get(receiverId)
 	if err != nil {
 		ctx.SetStatusCode(400)
@@ -108,12 +102,12 @@ func (b *BankService) MakeTransactionHandler(ctx *fasthttp.RequestCtx) {
 
 	if err := b.Cache.ChangeBalance(senderId, -sum); err != nil {
 		ctx.SetStatusCode(500)
-		WriteBody(ctx, ErrResponse{"transaction failed"})
+		WriteBody(ctx, ErrResponse{"transaction failed: "+err.Error()})
 		return
 	}
 	if err := b.Cache.ChangeBalance(receiverId, sum); err != nil {
 		ctx.SetStatusCode(500)
-		WriteBody(ctx, ErrResponse{"transaction failed"})
+		WriteBody(ctx, ErrResponse{"transaction failed: "+err.Error()})
 		return
 	}
 	ctx.SetStatusCode(200)

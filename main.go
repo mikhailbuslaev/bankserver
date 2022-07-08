@@ -3,6 +3,9 @@ package main
 import (
 	"os/signal"
 	"os"
+	"io"
+	"fmt"
+	"encoding/csv"
 	"syscall"
 	"bankservice/server"
 	"github.com/valyala/fasthttp"
@@ -32,6 +35,34 @@ func request() {
 	println("transaction done")
 }
 
+func checkSum(fileName string) error{
+	result := 0.0
+	file, err := os.OpenFile(fileName, os.O_RDWR, 0755)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	r := csv.NewReader(file)
+	r.Comma = ';'
+
+	for {
+		record, err := r.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		balance, err := strconv.ParseFloat(record[2], 64)
+		if err != nil {
+			return err
+		}
+		result += balance
+	}
+	fmt.Println(result)
+	return nil
+}
+
 func main() {
 	bankserver := server.New()
 	wg := sync.WaitGroup{}
@@ -50,5 +81,6 @@ func main() {
 	exit := make(chan os.Signal, 1)
 	signal.Notify(exit, os.Interrupt, syscall.SIGTERM)
 	<- exit
-	time.Sleep(5*time.Second)
+	time.Sleep(3*time.Second)
+	_ = checkSum("cache.csv")
 }
