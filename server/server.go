@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"sync"
+	"math"
 	"os/signal"
 	"syscall"
 	"time"
@@ -23,11 +24,11 @@ type BankService struct {
 }
 
 type OkResponse struct {
-	Result interface{} `json:"result"`
+	Result string `json:"result"`
 }
 
 type ErrResponse struct {
-	Result interface{} `json:"error"`
+	Result string `json:"error"`
 }
 
 func WriteBody(ctx *fasthttp.RequestCtx, v interface{}) {
@@ -66,7 +67,7 @@ func (b *BankService) GetBalanceHandler(ctx *fasthttp.RequestCtx) {
 		return
 	}
 	ctx.SetStatusCode(200)
-	WriteBody(ctx, OkResponse{user.Balance})
+	WriteBody(ctx, OkResponse{strconv.FormatFloat(user.Balance, 'f', 2, 64)})
 }
 
 func (b *BankService) MakeTransactionHandler(ctx *fasthttp.RequestCtx) {
@@ -75,7 +76,7 @@ func (b *BankService) MakeTransactionHandler(ctx *fasthttp.RequestCtx) {
 	password := string(ctx.Request.Header.Peek("password"))
 
 	sum, err := strconv.ParseFloat(string(ctx.Request.Header.Peek("sum")), 64)
-	if err != nil || sum < 0.00 {
+	if err != nil || sum < 0.00 || math.Round(sum*100)/100 != sum {
 		ctx.SetStatusCode(400)
 		WriteBody(ctx, ErrResponse{"invalid sum"})
 		return
@@ -123,7 +124,7 @@ func (b *BankService) CreateUserHandler(ctx *fasthttp.RequestCtx) {
 		return
 	}
 	balance, err := strconv.ParseFloat(string(ctx.Request.Header.Peek("balance")), 64)
-	if err != nil || balance < 0.00 {
+	if err != nil || balance < 0.00 || math.Round(balance*100)/100 != balance {
 		ctx.SetStatusCode(400)
 		WriteBody(ctx, ErrResponse{"invalid balance"})
 		return

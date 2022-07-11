@@ -17,8 +17,8 @@ import (
 
 func request() {
 	rand.Seed(time.Now().UnixNano())
-	sender_id := strconv.FormatInt(int64(rand.Intn(11)), 16)
-	receiver_id := strconv.FormatInt(int64(rand.Intn(11)), 16)
+	sender_id := strconv.FormatInt(int64(rand.Intn(16)), 16)
+	receiver_id := strconv.FormatInt(int64(rand.Intn(16)), 16)
 
 	req := fasthttp.AcquireRequest()
     req.SetRequestURI("http://localhost:1111/transaction")
@@ -69,7 +69,7 @@ func main() {
 	go bankserver.Run()
 	time.Sleep(5*time.Second)
 
-	for i:=0;i<10;i++ {
+	for i:=0;i<15;i++ {
 		wg.Add(1)
 		go func(wg *sync.WaitGroup) {
 			request()

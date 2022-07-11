@@ -110,7 +110,7 @@ func (c *Cache) ScreenToFile(fileName string) error {
 	defer w.Flush()
 	w.Comma = ';'
 	for _, v := range c.Users {
-		err = w.Write([]string{v.Id, v.AuthKey, strconv.FormatFloat(v.Balance, 'f', -1, 64)})
+		err = w.Write([]string{v.Id, v.AuthKey, strconv.FormatFloat(v.Balance, 'f', 2, 64)})
 		if err != nil {
 			return err
 		}
