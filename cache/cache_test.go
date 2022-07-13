@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"reflect"
 	"testing"
 	"bankservice/user"
 	"github.com/stretchr/testify/assert"
@@ -101,6 +102,27 @@ func Test_ChangeBalance(t *testing.T) {
 	assert.NotNil(err)
 }
 
-func Test_ScanToFile(t *testing.T) {
-	
+func Test_ScreenToFile(t *testing.T) {
+	assert := assert.New(t)
+	c := ExampleCache1()
+
+	err := c.ScreenToFile("test_cache_got.csv")
+	assert.Nil(err)
+
+	err = c.ScreenToFile("blablabla.csv")
+	assert.NotNil(err)
+}
+
+func Test_RestoreFromFile(t *testing.T) {
+	assert := assert.New(t)
+	got := New()
+	want := ExampleCache1()
+
+	err := got.RestoreFromFile("blablabla.csv")
+	assert.NotNil(err)
+	assert.NotEqual(reflect.DeepEqual(got, want), true, "they should be not equal")
+
+	err = got.RestoreFromFile("test_cache_want.csv")
+	assert.Nil(err)
+	assert.Equal(reflect.DeepEqual(got, want), true, "they should be equal")
 }
