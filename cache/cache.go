@@ -109,6 +109,10 @@ func (c *Cache) ScreenToFile(fileName string) error {
 	w := csv.NewWriter(file)
 	defer w.Flush()
 	w.Comma = ';'
+
+	c.RLock()
+	defer c.RUnlock()
+
 	for _, v := range c.Users {
 		err = w.Write([]string{v.Id, v.AuthKey, strconv.FormatFloat(v.Balance, 'f', 2, 64)})
 		if err != nil {

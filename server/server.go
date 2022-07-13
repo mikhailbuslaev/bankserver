@@ -15,12 +15,19 @@ import (
 	"github.com/valyala/fasthttp"
 	"golang.org/x/crypto/bcrypt"
 	"encoding/json"
+	"gopkg.in/yaml.v3"
 )
 
 type BankService struct {
 	Server *fasthttp.Server
 	Cache *cache.Cache
 	WaitGroup *sync.WaitGroup
+	Config *BankServiceConfig
+}
+
+type BankServiceConfig struct {
+	StorageName string `yaml:"storagename"`
+	Port string `yaml:"port"`
 }
 
 type OkResponse struct {
@@ -139,10 +146,24 @@ func (b *BankService) CreateUserHandler(ctx *fasthttp.RequestCtx) {
 	WriteBody(ctx, OkResponse{"successful user creating"})
 }
 
+func (b *BankService) LoadConfig(configName string) {
+	buf, err := os.ReadFile(configName)
+	if err != nil {
+		log.Fatalf("Cannot read config file")
+	}
+
+	err = yaml.Unmarshal(buf, &b.Config)
+	if err != nil {
+		log.Println(err)
+		log.Fatalf("Cannot parse config")
+	}
+}
+
 func New() *BankService {
 	b := &BankService{}
 	b.Cache = cache.New()
 	b.WaitGroup = &sync.WaitGroup{}
+	b.LoadConfig("config.yaml")
 
 	requestHandler := func(ctx *fasthttp.RequestCtx) {
 		b.WaitGroup.Add(1)
@@ -166,21 +187,37 @@ func New() *BankService {
 
 func (b *BankService) Run() {
 	fmt.Println("server run...")
-	defer b.Cache.ScreenToFile("cache.csv")
-	if err := b.Cache.RestoreFromFile("cache.csv"); err != nil {
+	// last cache backup
+	defer func() {
+		os.Truncate(b.Config.StorageName, 0)
+		b.Cache.ScreenToFile(b.Config.StorageName)
+	}()
+	// get cache from file
+	if err := b.Cache.RestoreFromFile(b.Config.StorageName); err != nil {
 		log.Fatalf("restore cash fail")
 	}
+	// fasthttp server run
 	go func() {
-		if err := b.Server.ListenAndServe(":1111"); err != nil {
+		if err := b.Server.ListenAndServe(b.Config.Port); err != nil {
 			log.Fatalf("error in ListenAndServe: %v", err)
 		}
 	}()
-
+	// backup cache every 5 min, we need this because SIGKILL can happen
+	go func() {
+		for {
+			b.WaitGroup.Add(1)
+			os.Truncate(b.Config.StorageName, 0)
+			b.Cache.ScreenToFile(b.Config.StorageName)
+			b.WaitGroup.Done()
+			time.Sleep(5*time.Minute)
+		}
+	}()
+	// wait SIGINT
 	exit := make(chan os.Signal, 1)
 	signal.Notify(exit, os.Interrupt, syscall.SIGTERM)
 	<- exit
-	
 	println("server exit...")
+	// wait until all workers done
 	b.WaitGroup.Wait()
 	time.Sleep(1*time.Second)
 }
