@@ -1,21 +1,27 @@
-ARG BASE=centos:7
-FROM $BASE
+FROM golang:alpine
 
-LABEL maintainer="Mikhail Buslaev (buslaevnmh@yandex.ru)"
+# Set necessary environmet variables needed for our image
+ENV GO111MODULE=on \
+    CGO_ENABLED=0 \
+    GOOS=linux \
+    GOARCH=amd64
 
-RUN cd /home
-    # update yum utilities
-RUN yum -y update
-    # install epel(need for easy golang installation)
-RUN yum -y install epel-release
-    #install git
-RUN yum -y install git
-    # install golang
-RUN yum -y install golang
-    # cleanup
-RUN yum -y clean all && rm -rf /var/cache
+# Move to working directory /build
+WORKDIR /build
 
-# install bankservice
-RUN git clone https://github.com/mikhailbuslaev/bankserver.git
-# build app
-RUN cd bankserver && go build bankserver.go
+# Copy and download dependency using go mod
+COPY go.mod .
+COPY go.sum .
+RUN go mod download
+
+# Copy the code into the container
+COPY . .
+
+# Build the application
+RUN go build -o bankserver .
+
+# Export necessary port
+EXPOSE 8080
+
+# Command to run when starting the container
+CMD ["./bankserver"]
